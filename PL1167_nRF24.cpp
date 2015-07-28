@@ -34,7 +34,9 @@ static const uint8_t pipe[] = {0xd1, 0x28, 0x5e, 0x55, 0x55};
 
 int PL1167_nRF24::open()
 {
-  _radio.begin();
+  if(_radio.begin() == false){
+    return -1;
+  }
   return recalc_parameters();
 }
 
