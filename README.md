@@ -1,13 +1,12 @@
-==Install==
 
-==Install==
+## Install
 
 Install https://github.com/mysensors/Raspberry.git
 
 Compile this source
 
-==Usage==
-
+## Usage 
+```
 Usage: sudo ./openmilight [hdfslun:p:q:r:c:b:k:v:w:]
 
    -h                       Show this help
@@ -30,4 +29,4 @@ Usage: sudo ./openmilight [hdfslun:p:q:r:c:b:k:v:w:]
 
  Inspired by sources from: - https://github.com/henryk/
                            - http://torsten-traenkner.de/wissen/smarthome/openmilight.php
-
+```
