@@ -1,5 +1,3 @@
-/**
- */
 
 #include <cstdlib>
 #include <iostream>
@@ -48,6 +46,7 @@ void receive()
     for (; dupesPrinted < dupesReceived; dupesPrinted++) {
       printf(".");
     }
+    fflush(stdout);
   } 
 }
 
@@ -176,7 +175,8 @@ void udp_milight(uint16_t remote)
   int discover_fd, data_fd;
   struct sockaddr_in discover_addr, data_addr, cliaddr;
   char mesg[42];
-
+  char reply[30] = "192.168.1.12,BABECAFEBABE,";
+ 
   int disco = -1;
 
   uint8_t data[8];
@@ -203,7 +203,29 @@ void udp_milight(uint16_t remote)
   data_addr.sin_port = htons(8899);
   bind(data_fd, (struct sockaddr *)&data_addr, sizeof(data_addr));
 
-  printf("%d - %d (%d)\n", discover_fd, data_fd, FD_SETSIZE);
+  /* 
+   * The worst hack ever, but probably slightly better than hardcoded
+   * Should move this to an ioctl command as there seems to be no better
+   * of simpler option to retrieve the IP and MAC.
+   */
+  if(0){
+    FILE *fd;
+    size_t s1, s2;
+    fd = popen("ifconfig | grep \"inet addr\" | cut -d ':' -f 2 | cut -d ' ' -f 1 | grep -v \"127.0.0.1\" | head -n 1 | tr -d [:space:]", "r");
+    s1 = fread(reply, 1, 15, fd);
+    reply[s1] = ',';
+    s1++;
+    fd = popen("ifconfig | grep \"HWaddr\" | cut -d ' ' -f 11 | tr -d [:space:] | tr -d ':' | tr [:lower:] [:upper:]", "r");
+    s2 = fread(reply + s1, 1, 12 ,fd);
+    reply[s1 + s2] = ',';
+    s2++;
+    reply[s1 + s2] = '\0';
+  }
+
+  if(debug){
+    printf("Reply String: %s\n", reply);
+    fflush(stdout);
+  }
 
   while(1){
     socklen_t len = sizeof(cliaddr);
@@ -225,13 +247,9 @@ void udp_milight(uint16_t remote)
           printf("UDP --> Received discovery request (%s) from %s\n", mesg, str);  
         }
 
-        char str[INET_ADDRSTRLEN];
-        long ip = discover_addr.sin_addr.s_addr;
-        inet_ntop(AF_INET, &ip, str, INET_ADDRSTRLEN);
-        printf("my ip : %s\n", str);
-        
-
-        //if(!strncmp(mesg, "Link_Wi-Fi",)
+        if(!strncmp(mesg, "Link_Wi-Fi", 41)){
+          sendto(discover_fd, reply, 30, 0, (struct sockaddr*)&cliaddr, len);
+        }
       }
       
       if(FD_ISSET(data_fd, &socks)){
