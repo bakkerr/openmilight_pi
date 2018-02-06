@@ -169,25 +169,214 @@ void udp_raw()
   }
 }
 
-void udp_milight(uint16_t remote)
-{
-  fd_set socks;
-  int discover_fd, data_fd;
-  struct sockaddr_in discover_addr, data_addr, cliaddr;
-  char mesg[42];
-  char reply[30] = "192.168.1.12,BABECAFEBABE,";
- 
+void handle_milight_command(uint16_t remote, char *mesg, int n){
+
   int disco = -1;
 
-  uint8_t data[8];
-  data[0] = 0xB8;
+  static uint8_t first = 1;
+  static uint8_t data[8];
+  if(first){
+    data[0] = 0xB8;
+    data[3] = 0x00;
+    data[4] = 0x00;
+    data[5] = 0x00;
+    data[6] = 0x01;
+    data[7] = 0x09;
+    first = 0;
+  }
   data[1] = (remote >> 8) & 0xFF;
   data[2] = remote & 0xFF;
-  data[3] = 0x00;
-  data[4] = 0x00;
-  data[5] = 0x00;
-  data[6] = 0x01;
-  data[7] = 0x09;
+ 
+  if(n == 2 || n == 3){
+    if(debug){
+      printf("UDP --> Received hex value (%02x, %02x, %02x)\n", mesg[0], mesg[1], mesg[2]);
+    }
+
+    data[0] = 0xB8;
+
+    switch(mesg[0]){
+      /* Color */
+      case 0x40:
+        disco = -1;
+        data[5] = 0x0F;
+        data[3] = (0xC8 - mesg[1] + 0x100) & 0xFF;
+        data[0] = 0xB0;
+        break;
+      /* All Off */
+      case 0x41:
+        data[5] = 0x02;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* All On */
+      case 0x42:
+        data[4] = (data[4] & 0xF8);
+        data[5] = 0x01;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Disco slower */
+      case 0x43:
+        data[5] = 0x0C;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Disco faster */
+      case 0x44:
+        data[5] = 0x0B;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z1 On */
+      case 0x45:
+        data[4] = (data[4] & 0xF8) | 0x01;
+        data[5] = 0x03;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z1 Off */
+      case 0x46:
+        data[5] = 0x04;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z2 On */
+      case 0x47:
+        data[4] = (data[4] & 0xF8) | 0x02;
+        data[5] = 0x05;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z2 Off */
+      case 0x48:
+        data[5] = 0x06;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z3 On */
+      case 0x49:
+        data[4] = (data[4] & 0xF8) | 0x03;
+        data[5] = 0x07;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z3 Off */
+      case 0x4A:
+        data[5] = 0x08;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+       break;
+      /* Z4 On */
+      case 0x4B:
+        data[4] = (data[4] & 0xF8) | 0x04;
+        data[5] = 0x09;
+         if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Z4 Off */
+      case 0x4C:
+        data[5] = 0x0A;
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break;
+      /* Disco */
+      case 0x4D:
+        disco = (disco + 1) % 9;
+        data[0] = 0xB0 + disco;
+        data[5] = 0x0D;
+        break;
+      /* Brightness */
+      case 0x4E:
+        data[5] = 0x0E;
+        data[4] = ((0x90 - (mesg[1] * 8) + 0x100) & 0xFF) | (data[4] & 0x07);
+        if(disco > 0){
+          data[0] = 0xB0 + disco;
+        }
+        break; 
+      /* All White */
+      case 0xC2:
+        disco = -1;
+        data[5] = 0x11;
+        break;
+      /* Z1 White. */
+      case 0xC5:
+        disco = -1;
+        data[5] = 0x13;
+        break;
+      /* Z2 White. */
+      case 0xC7:
+        disco = -1;
+        data[5] = 0x15;
+        break;
+      /* Z3 White. */
+      case 0xC9:
+        disco = -1;
+        data[5] = 0x17;
+        break;
+      /* Z4 White. */
+      case 0xCB:
+        disco = -1;
+        data[5] = 0x19;
+        break;
+      /* All Night */
+      case 0xC1:
+        disco = -1;
+        data[5] = 0x12;
+        break;
+      /* Z1 Night */
+      case 0xC6:
+        disco = -1;
+        data[5] = 0x14;
+        break;
+      /* Z2 Night */
+      case 0xC8:
+        disco = -1;
+        data[5] = 0x16;
+        break;
+      /* Z3 Night */
+      case 0xCA:
+        disco = -1;
+        data[5] = 0x18;
+        break;
+      /* Z4 Night */
+      case 0xCC:
+        disco = -1;
+        data[5] = 0x1A;
+        break;
+      default:
+        fprintf(stderr, "Unknown command %02x!\n", mesg[0]);
+        return;
+    } /* End case command */
+
+    /* Send command */
+    send(data);
+    data[6]++;
+  }
+  else {
+    fprintf(stderr, "Message has invalid size %d (expecting 2 or 3)!\n", n);
+  } /* End message size check */
+
+}
+
+void udp_server(uint16_t remote)
+{
+  fd_set socks;
+  int discover_fd, milight_fd, raw_fd;
+  struct sockaddr_in discover_addr, milight_addr, raw_addr, cliaddr;
+  char mesg[90];
+  char reply[35] = "192.168.1.14,BABECAFEBABE,";
 
   discover_fd = socket(AF_INET, SOCK_DGRAM, 0);
   bzero(&discover_addr, sizeof(discover_addr));
@@ -196,12 +385,19 @@ void udp_milight(uint16_t remote)
   discover_addr.sin_port = htons(48899);
   bind(discover_fd, (struct sockaddr *)&discover_addr, sizeof(discover_addr));
 
-  data_fd = socket(AF_INET, SOCK_DGRAM, 0);
-  bzero(&data_addr, sizeof(data_addr));
-  data_addr.sin_family = AF_INET;
-  data_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  data_addr.sin_port = htons(8899);
-  bind(data_fd, (struct sockaddr *)&data_addr, sizeof(data_addr));
+  milight_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  bzero(&milight_addr, sizeof(milight_addr));
+  milight_addr.sin_family = AF_INET;
+  milight_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  milight_addr.sin_port = htons(8899);
+  bind(milight_fd, (struct sockaddr *)&milight_addr, sizeof(milight_addr));
+
+  raw_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  bzero(&raw_addr, sizeof(raw_addr));
+  raw_addr.sin_family = AF_INET;
+  raw_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  raw_addr.sin_port = htons(8898);
+  bind(raw_fd, (struct sockaddr *)&raw_addr, sizeof(raw_addr));
 
   /* 
    * The worst hack ever, but probably slightly better than hardcoded
@@ -232,214 +428,59 @@ void udp_milight(uint16_t remote)
 
     FD_ZERO(&socks);
     FD_SET(discover_fd, &socks);
-    FD_SET(data_fd, &socks);
+    FD_SET(milight_fd, &socks);
+    FD_SET(raw_fd, &socks);
 
     if(select(FD_SETSIZE, &socks, NULL, NULL, NULL) >= 0){
 
       if(FD_ISSET(discover_fd, &socks)){
-        int n = recvfrom(discover_fd, mesg, 41, 0, (struct sockaddr *)&cliaddr, &len);
+        int n = recvfrom(discover_fd, mesg, 90, 0, (struct sockaddr *)&cliaddr, &len);
         mesg[n] = '\0';
         
         if(debug){
           char str[INET_ADDRSTRLEN];
           long ip = cliaddr.sin_addr.s_addr;
           inet_ntop(AF_INET, &ip, str, INET_ADDRSTRLEN);
-          printf("UDP --> Received discovery request (%s) from %s\n", mesg, str);  
+          //printf("UDP --> Received discovery request (%s) from %s\n", mesg, str);  
+          printf("From %s: ", str);
+          for(size_t i = 0; i < strlen(mesg); i++){
+            printf("%x ", mesg[i]);
+          }
+          printf("|\n");
         }
 
         if(!strncmp(mesg, "Link_Wi-Fi", 41)){
-          sendto(discover_fd, reply, 30, 0, (struct sockaddr*)&cliaddr, len);
+          sendto(discover_fd, reply, strlen(reply), 0, (struct sockaddr*)&cliaddr, len);
         }
       }
       
-      if(FD_ISSET(data_fd, &socks)){
-        int n = recvfrom(data_fd, mesg, 41, 0, (struct sockaddr *)&cliaddr, &len);
+      if(FD_ISSET(milight_fd, &socks)){
+        int n = recvfrom(milight_fd, mesg, 41, 0, (struct sockaddr *)&cliaddr, &len);
 
         mesg[n] = '\0';
 
+        handle_milight_command(remote, mesg, n);
+      } 
 
-        if(n == 2 || n == 3){
+      if(FD_ISSET(raw_fd, &socks)){
+        int n = recvfrom(raw_fd, mesg, 41, 0, (struct sockaddr *)&cliaddr, &len);
+
+        mesg[n] = '\0';
+
+        if(n == 8){
           if(debug){
-            printf("UDP --> Received hex value (%02x, %02x, %02x)\n", mesg[0], mesg[1], mesg[2]);
+            printf("UDP --> Received hex value\n");
           }
-
-          data[0] = 0xB8;
-
-          switch(mesg[0]){
-            /* Color */
-            case 0x40:
-              disco = -1;
-              data[5] = 0x0F;
-              data[3] = (0xC8 - mesg[1] + 0x100) & 0xFF;
-              data[0] = 0xB0;
-              break;
-            /* All Off */
-            case 0x41:
-              data[5] = 0x02;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* All On */
-            case 0x42:
-              data[4] = (data[4] & 0xF8);
-              data[5] = 0x01;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Disco slower */
-            case 0x43:
-              data[5] = 0x0C;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Disco faster */
-            case 0x44:
-              data[5] = 0x0B;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z1 On */
-            case 0x45:
-              data[4] = (data[4] & 0xF8) | 0x01;
-              data[5] = 0x03;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z1 Off */
-            case 0x46:
-              data[5] = 0x04;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z2 On */
-            case 0x47:
-              data[4] = (data[4] & 0xF8) | 0x02;
-              data[5] = 0x05;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z2 Off */
-            case 0x48:
-              data[5] = 0x06;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z3 On */
-            case 0x49:
-              data[4] = (data[4] & 0xF8) | 0x03;
-              data[5] = 0x07;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z3 Off */
-            case 0x4A:
-              data[5] = 0x08;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-             break;
-            /* Z4 On */
-            case 0x4B:
-              data[4] = (data[4] & 0xF8) | 0x04;
-              data[5] = 0x09;
-               if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Z4 Off */
-            case 0x4C:
-              data[5] = 0x0A;
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break;
-            /* Disco */
-            case 0x4D:
-              disco = (disco + 1) % 9;
-              data[0] = 0xB0 + disco;
-              data[5] = 0x0D;
-              break;
-            /* Brightness */
-            case 0x4E:
-              data[5] = 0x0E;
-              data[4] = ((0x90 - (mesg[1] * 8) + 0x100) & 0xFF) | (data[4] & 0x07);
-              if(disco > 0){
-                data[0] = 0xB0 + disco;
-              }
-              break; 
-            /* All White */
-            case 0xC2:
-              disco = -1;
-              data[5] = 0x11;
-              break;
-            /* Z1 White. */
-            case 0xC5:
-              disco = -1;
-              data[5] = 0x13;
-              break;
-            /* Z2 White. */
-            case 0xC7:
-              disco = -1;
-              data[5] = 0x15;
-              break;
-            /* Z3 White. */
-            case 0xC9:
-              disco = -1;
-              data[5] = 0x17;
-              break;
-            /* Z4 White. */
-            case 0xCB:
-              disco = -1;
-              data[5] = 0x19;
-              break;
-            /* All Night */
-            case 0xC1:
-              disco = -1;
-              data[5] = 0x12;
-              break;
-            /* Z1 Night */
-            case 0xC6:
-              disco = -1;
-              data[5] = 0x14;
-              break;
-            /* Z2 Night */
-            case 0xC8:
-              disco = -1;
-              data[5] = 0x16;
-              break;
-            /* Z3 Night */
-            case 0xCA:
-              disco = -1;
-              data[5] = 0x18;
-              break;
-            /* Z4 Night */
-            case 0xCC:
-              disco = -1;
-              data[5] = 0x1A;
-              break;
-            default:
-              fprintf(stderr, "Unknown command %02x!\n", mesg[0]);
-              continue;
-          } /* End case command */
-
-          /* Send command */
+          uint8_t data[8];
+          for(int i = 0; i < 8; i++){
+            data[i] = (uint8_t)mesg[i];
+          }
           send(data);
-          data[6]++;
         }
         else {
-          fprintf(stderr, "Message has invalid size %d (expecting 2 or 3)!\n", n);
-        } /* End message size check */
-
-      } /* End handling data */
+          fprintf(stderr, "Message has invalid size %d (expecting 8)!\n", n);
+        }
+      }
 
     } /* End select */
 
@@ -475,6 +516,47 @@ void usage(const char *arg, const char *options){
   printf("\n");
 }
 
+void init_bulbs(int n, int rem)
+{
+  FILE *fp = fopen("config.txt", "r");
+  size_t len = 0;
+  ssize_t read;
+  char *line = NULL;
+
+  while((read = getline(&line, &len, fp)) != -1){
+    //printf("Retrieved line of length %zu :\n", read);
+    //printf("%s", line);
+    line[4] = line[6] = '\0';
+    uint16_t remote = strtol(line, NULL, 16);
+    uint8_t zone = atoi(line + 5);
+    for(int b = 7; b < read; b += 2)
+    {
+      line[b+1] = '\0';
+      uint16_t bulb = atoi(line + b);
+      printf("Configuring bulb %d for remote %x zone %d\n", bulb, remote, zone);
+      char c;
+      scanf("%c", &c);
+      if(c != '\n') return;
+      send(0x00, 0x08 + zone, 0x01 + zone * 2, remote & 0xFF, (remote >> 8) & 0xFF);
+    }
+
+  }
+
+  free(line);
+
+/*  for(int i = 0; i < n; i++){
+    char c;
+    printf("Reset Bulb %d: [y/n]", i);
+    scanf("%c", &c);
+    if(c == 'Y' || c == 'y'){
+      send(0x00, 0x00, 0x03, rem+i, 0xCC, 0xB8);
+    }
+    while(scanf("%c", &c) < 0);
+  }
+*/
+
+}
+
 int main(int argc, char** argv)
 {
   int do_receive = 0;
@@ -483,6 +565,7 @@ int main(int argc, char** argv)
   int do_strobe  = 0;
   int do_fade    = 0;
   int do_command = 0;
+  int do_bind    = 0;
 
   uint8_t prefix   = 0xB8;
   uint8_t rem_p    = 0x00;
@@ -499,13 +582,16 @@ int main(int argc, char** argv)
 
   uint64_t tmp;
 
-  const char *options = "hdfslumn:p:q:r:c:b:k:v:w:";
+  const char *options = "hdfislumn:p:q:r:c:b:k:v:w:";
 
   while((c = getopt(argc, argv, options)) != -1){
     switch(c){
       case 'h':
         usage(argv[0], options);
         exit(0);
+        break;
+      case 'i':
+        do_bind = 1;
         break;
       case 'd':
         debug = 1;
@@ -601,7 +687,12 @@ int main(int argc, char** argv)
 
   if(do_milight){
     printf("UDP mode (milight), press Ctrl-C to end\n"); 
-    udp_milight(0x0044);
+    udp_server(0x0044);
+  }
+
+  if(do_bind){
+    init_bulbs(5, 0);
+    return 0;
   }
 
   if(do_fade){
